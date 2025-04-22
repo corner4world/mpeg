@@ -11,9 +11,7 @@ import (
 // PAT携带PMT的PID, PMT里面存储音视频的StreamType和StreamId
 // PAT->PMT->DATA...PAT->PMT->DATA
 type TSMuxer struct {
-	tracks  []*tsTrack
-	startTS int64
-	endTS   int64
+	tracks []*tsTrack
 }
 
 type tsTrack struct {
@@ -25,6 +23,8 @@ type tsTrack struct {
 	codecId       utils.AVCodecID
 	extra         []byte
 	audioConfig   *utils.MPEG4AudioConfig
+	startTs       int64
+	endTs         int64
 }
 
 func (t *TSMuxer) AddTrack(mediaType utils.AVMediaType, id utils.AVCodecID, extraData []byte) (int, error) {
@@ -51,6 +51,8 @@ func (t *TSMuxer) AddTrack(mediaType utils.AVMediaType, id utils.AVCodecID, extr
 			pid: TsPacketStartPid + len(t.tracks),
 		},
 		mediaType: mediaType, codecId: id,
+		startTs: -1,
+		endTs:   -1,
 	}
 
 	if length := len(extraData); length > 0 {
@@ -109,7 +111,7 @@ func (t *TSMuxer) write(dst []byte, track *tsTrack, dts, pts int64, first bool, 
 	if n < size {
 		// 首包加入pcr
 		if first {
-			if utils.AVMediaTypeVideo == track.mediaType && t.startTS == dts {
+			if utils.AVMediaTypeVideo == track.mediaType && track.startTs == dts {
 				// MPEG-2标准中, 时钟频率为27MHZ
 				// PES中的DTS和PTS 90KHZ
 				// 不能超过42位
@@ -163,15 +165,15 @@ func (t *TSMuxer) Input(dst []byte, index int, data []byte, totalSize int, dts, 
 	var composeData [][]byte
 
 	if first {
-		if t.startTS == -1 {
-			t.startTS = dts
+		if track.startTs == -1 {
+			track.startTs = dts
 		}
 
-		if dts < t.startTS {
-			t.endTS = t.startTS
-			t.startTS = dts
+		if dts < track.startTs {
+			track.endTs = track.startTs
+			track.startTs = dts
 		} else {
-			t.endTS = dts
+			track.endTs = dts
 		}
 
 		pts = pts % 0x1FFFFFFFF
@@ -239,8 +241,10 @@ func (t *TSMuxer) Input(dst []byte, index int, data []byte, totalSize int, dts, 
 }
 
 func (t *TSMuxer) Reset() {
-	t.startTS = -1
-	t.endTS = t.startTS
+	for _, track := range t.tracks {
+		track.startTs = -1
+		track.endTs = -1
+	}
 
 	for _, track := range t.tracks {
 		track.packet.payloadUnitStartIndicator = 1
@@ -249,7 +253,13 @@ func (t *TSMuxer) Reset() {
 }
 
 func (t *TSMuxer) Duration() int64 {
-	return t.endTS - t.startTS
+	var duration int64
+	for _, track := range t.tracks {
+		if i := track.endTs - track.startTs; i > duration {
+			duration = i
+		}
+	}
+	return duration
 }
 
 func (t *TSMuxer) Close() {
@@ -257,8 +267,5 @@ func (t *TSMuxer) Close() {
 }
 
 func NewTSMuxer() *TSMuxer {
-	return &TSMuxer{
-		startTS: -1,
-		endTS:   -1,
-	}
+	return &TSMuxer{}
 }
