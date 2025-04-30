@@ -138,26 +138,22 @@ func (h *ProgramStreamMap) Unmarshal(data []byte) int {
 		return 0
 	}
 
-	for i := offset; i < offset+elementaryLength; i += 4 {
-		eInfoLength := int(binary.BigEndian.Uint16(data[i+2:]))
+	end := totalLength - 4
+	for i := offset + 4; i <= end; i += 4 {
+		streamType := data[i-4]
+		streamId := data[i-3]
+		eInfoLength := binary.BigEndian.Uint16(data[i-2:])
 
-		if _, ok := h.findElementaryStream(data[i+1]); !ok {
+		i += int(eInfoLength)
+		if _, ok := h.findElementaryStream(streamId); !ok {
 			element := ElementaryStream{}
-			element.streamType = data[i]
-			element.streamId = data[i+1]
-
+			element.streamType = streamType
+			element.streamId = streamId
 			if eInfoLength > 0 {
-				//if i+4+eInfoLength > offset+elementaryLength {
-				if i+4+eInfoLength > totalLength-4 {
-					return 0
-				}
-				element.info = data[i+4 : i+4+eInfoLength]
+				// copy
 			}
-
 			h.elementaryStreams = append(h.elementaryStreams, element)
 		}
-
-		i += eInfoLength
 	}
 
 	h.crc32 = binary.BigEndian.Uint32(data[totalLength-4:])
