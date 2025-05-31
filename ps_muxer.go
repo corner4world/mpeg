@@ -91,8 +91,20 @@ func (r *PSMuxer) AddTrack(mediaType utils.AVMediaType, id utils.AVCodecID) (int
 // Input
 // @pts must be >= 0
 // @dts if the DTS does not exist. DTS must be < 0
-func (r *PSMuxer) Input(dst []byte, index int, key bool, data []byte, pts, dts *int64) int {
-	utils.Assert(pts != nil)
+func (r *PSMuxer) Input(dst []byte, index int, key bool, data []byte, ptsp, dtsp *int64) int {
+	utils.Assert(ptsp != nil)
+
+	var dts *int64
+	var pts *int64
+	if dtsp != nil {
+		ts := *dtsp & 0x1FFFFFFFF
+		dts = &ts
+	}
+
+	if ptsp != nil {
+		ts := *ptsp & 0x1FFFFFFFF
+		pts = &ts
+	}
 
 	var i int
 	s := r.streams[index]
