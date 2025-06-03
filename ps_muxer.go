@@ -18,9 +18,10 @@ type PSMuxer struct {
 		mediaType  utils.AVMediaType
 	}
 
-	packHeader   PackHeader
-	systemHeader SystemHeader
-	psm          ProgramStreamMap
+	packHeader    PackHeader
+	systemHeader  SystemHeader
+	psm           ProgramStreamMap
+	isFirstPacket bool
 }
 
 func (r *PSMuxer) AddTrack(mediaType utils.AVMediaType, id utils.AVCodecID) (int, error) {
@@ -125,11 +126,12 @@ func (r *PSMuxer) Input(dst []byte, index int, key bool, data []byte, ptsp, dtsp
 	i += r.packHeader.Marshal(dst[:])
 
 	// add system header and psm
-	if key {
+	if key || r.isFirstPacket {
 		i += r.systemHeader.Marshal(dst[i:])
 		i += r.psm.Marshal(dst[i:])
 	}
 
+	r.isFirstPacket = false
 	length := len(data)
 	var payloadSize int
 	for j := 0; j < length; j += payloadSize {
@@ -151,5 +153,6 @@ func NewPsMuxer() *PSMuxer {
 	m := &PSMuxer{}
 	m.packHeader.programMuxRate = 6106
 	m.systemHeader.rateBound = 26234
+	m.isFirstPacket = true
 	return m
 }
