@@ -11,7 +11,8 @@ import (
 // PAT携带PMT的PID, PMT里面存储音视频的StreamType和StreamId
 // PAT->PMT->DATA...PAT->PMT->DATA
 type TSMuxer struct {
-	tracks []*tsTrack
+	tracks      []*tsTrack
+	composeData [][]byte
 }
 
 type tsTrack struct {
@@ -162,7 +163,7 @@ func (t *TSMuxer) write(dst []byte, track *tsTrack, dts, pts int64, first bool, 
 
 func (t *TSMuxer) Input(dst []byte, index int, data []byte, totalSize int, dts, pts int64, key bool, first bool) int {
 	track := t.tracks[index]
-	var composeData [][]byte
+	t.composeData = t.composeData[:0]
 
 	if first {
 		if track.startTs == -1 {
@@ -189,7 +190,7 @@ func (t *TSMuxer) Input(dst []byte, index int, data []byte, totalSize int, dts, 
 
 		// 添加pes头
 		pesHeaderLen := track.pes.Marshal(track.pesHeaderData)
-		composeData = append(composeData, track.pesHeaderData[:pesHeaderLen])
+		t.composeData = append(t.composeData, track.pesHeaderData[:pesHeaderLen])
 
 		if utils.AVMediaTypeVideo == track.mediaType {
 			// 视频帧添加aud
@@ -197,13 +198,13 @@ func (t *TSMuxer) Input(dst []byte, index int, data []byte, totalSize int, dts, 
 			// 传入的nalu不要携带aud
 			if !existAud(data, track.codecId) {
 				if n := writeAud(track.pesHeaderData[pesHeaderLen:], track.codecId); n > 0 {
-					composeData = append(composeData, track.pesHeaderData[pesHeaderLen:pesHeaderLen+n])
+					t.composeData = append(t.composeData, track.pesHeaderData[pesHeaderLen:pesHeaderLen+n])
 				}
 			}
 
 			// sps/pps
 			if key && track.extra != nil {
-				composeData = append(composeData, track.extra)
+				t.composeData = append(t.composeData, track.extra)
 			}
 		}
 
@@ -211,14 +212,14 @@ func (t *TSMuxer) Input(dst []byte, index int, data []byte, totalSize int, dts, 
 		if utils.AVMediaTypeAudio == track.mediaType && utils.AVCodecIdAAC == track.codecId {
 			if _, err := utils.ReadADtsFixedHeader(data); err != nil {
 				utils.SetADtsHeader(track.pesHeaderData[pesHeaderLen:], 0, track.audioConfig.ObjectType-1, track.audioConfig.SamplingIndex, track.audioConfig.ChanConfig, 7+totalSize)
-				composeData = append(composeData, track.pesHeaderData[pesHeaderLen:pesHeaderLen+7])
+				t.composeData = append(t.composeData, track.pesHeaderData[pesHeaderLen:pesHeaderLen+7])
 			}
 		}
 	}
 
 	size := 0
-	composeData = append(composeData, data)
-	for _, bytes := range composeData {
+	t.composeData = append(t.composeData, data)
+	for _, bytes := range t.composeData {
 		size += len(bytes)
 	}
 
@@ -229,10 +230,10 @@ func (t *TSMuxer) Input(dst []byte, index int, data []byte, totalSize int, dts, 
 			pesPacketLength = 0
 		}
 
-		binary.BigEndian.PutUint16(composeData[0][4:], uint16(pesPacketLength))
+		binary.BigEndian.PutUint16(t.composeData[0][4:], uint16(pesPacketLength))
 	}
 
-	n := t.write(dst, track, dts, pts, first, size, composeData...)
+	n := t.write(dst, track, dts, pts, first, size, t.composeData...)
 	if first {
 		return n - (size - len(data))
 	} else {
@@ -267,5 +268,7 @@ func (t *TSMuxer) Close() {
 }
 
 func NewTSMuxer() *TSMuxer {
-	return &TSMuxer{}
+	return &TSMuxer{
+		composeData: make([][]byte, 0, 8),
+	}
 }
