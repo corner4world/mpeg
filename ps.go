@@ -36,12 +36,23 @@ const (
 	StreamTypeAudioAC3       = 0x81
 	StreamTypeAudioG711A     = 0x90
 	StreamTypeAudioG711U     = 0x91
+	StreamTypeAudioG722      = 0x92
 	StreamTypeVideoSVAC      = 0x80
 )
 
 var (
-	streamTypes           map[int]int
-	codecId2StreamTypeMap map[utils.AVCodecID]int // TS流支持的编码器列表
+	streamTypes     map[int]int
+	SupportedCodecs = map[utils.AVCodecID]interface{}{
+		utils.AVCodecIdMP3:       StreamTypeAudioMPEG1,
+		utils.AVCodecIdAAC:       StreamTypeAudioAAC,
+		utils.AVCodecIdPCMALAW:   StreamTypeAudioG711A,
+		utils.AVCodecIdPCMMULAW:  StreamTypeAudioG711U,
+		utils.AVCodecIdADPCMG722: StreamTypeAudioG722,
+
+		utils.AVCodecIdH264:  StreamTypeVideoH264,
+		utils.AVCodecIdHEVC:  StreamTypeVideoHEVC,
+		utils.AVCodecIdMPEG4: StreamTypeVideoMpeg4,
+	}
 )
 
 type StreamType int
@@ -69,30 +80,19 @@ func init() {
 		StreamTypeVideoCAVS:      StreamIDVideo,
 		StreamTypeAudioAC3:       StreamIDAudio,
 	}
-
-	codecId2StreamTypeMap = map[utils.AVCodecID]int{
-		utils.AVCodecIdMP3:      StreamTypeAudioMPEG1,
-		utils.AVCodecIdAAC:      StreamTypeAudioAAC,
-		utils.AVCodecIdPCMALAW:  StreamTypeAudioG711A,
-		utils.AVCodecIdPCMMULAW: StreamTypeAudioG711U,
-
-		utils.AVCodecIdH264:  StreamTypeVideoH264,
-		utils.AVCodecIdHEVC:  StreamTypeVideoHEVC,
-		utils.AVCodecIdMPEG4: StreamTypeVideoMpeg4,
-	}
 }
 
 func AVCodecID2StreamType(id utils.AVCodecID) (int, error) {
-	streamType, ok := codecId2StreamTypeMap[id]
+	streamType, ok := SupportedCodecs[id]
 	if ok {
-		return streamType, nil
+		return streamType.(int), nil
 	}
 
 	return -1, fmt.Errorf("unsupported codec: %s", id)
 }
 
 func StreamType2AVCodecID(streamType int) (utils.AVCodecID, utils.AVMediaType, error) {
-	for k, v := range codecId2StreamTypeMap {
+	for k, v := range SupportedCodecs {
 		if v != streamType {
 			continue
 		}

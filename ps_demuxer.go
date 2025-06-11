@@ -17,6 +17,7 @@ type PSDemuxer struct {
 	programStreamMap *ProgramStreamMap
 	pesHeader        *PESHeader
 	reader           bufio.BytesReader
+	lastError        error
 
 	ctx struct {
 		readESLength      uint16 // 已经读取到的ES流长度
@@ -139,7 +140,10 @@ func (d *PSDemuxer) Input(data []byte) (int, error) {
 		var err error
 		codec, mediaType, err = StreamType2AVCodecID(int(elementaryStream.streamType))
 		if err != nil {
-			return -1, err
+			if d.lastError == nil || d.lastError.Error() != err.Error() {
+				d.lastError = err
+				println(err.Error())
+			}
 		}
 	}
 

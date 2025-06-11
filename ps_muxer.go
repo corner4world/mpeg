@@ -27,7 +27,7 @@ type PSMuxer struct {
 func (r *PSMuxer) AddTrack(mediaType utils.AVMediaType, id utils.AVCodecID) (int, error) {
 	streamType, err := AVCodecID2StreamType(id)
 	if err != nil {
-		return -1, nil
+		return -1, err
 	}
 
 	for _, s := range r.streams {
