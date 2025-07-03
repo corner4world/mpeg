@@ -41,13 +41,24 @@ const (
 )
 
 var (
-	streamTypes     map[int]int
+	streamTypes map[int]int
+	// SupportedCodecs PS流支持的编码器
 	SupportedCodecs = map[utils.AVCodecID]interface{}{
 		utils.AVCodecIdMP3:       StreamTypeAudioMPEG1,
 		utils.AVCodecIdAAC:       StreamTypeAudioAAC,
 		utils.AVCodecIdPCMALAW:   StreamTypeAudioG711A,
 		utils.AVCodecIdPCMMULAW:  StreamTypeAudioG711U,
 		utils.AVCodecIdADPCMG722: StreamTypeAudioG722,
+
+		utils.AVCodecIdH264:  StreamTypeVideoH264,
+		utils.AVCodecIdHEVC:  StreamTypeVideoHEVC,
+		utils.AVCodecIdMPEG4: StreamTypeVideoMpeg4,
+	}
+
+	// TSSupportedCodecs TS流支持的编码器
+	TSSupportedCodecs = map[utils.AVCodecID]interface{}{
+		utils.AVCodecIdAAC: StreamTypeAudioAAC,
+		utils.AVCodecIdMP3: StreamTypeAudioMPEG1,
 
 		utils.AVCodecIdH264:  StreamTypeVideoH264,
 		utils.AVCodecIdHEVC:  StreamTypeVideoHEVC,
@@ -82,8 +93,26 @@ func init() {
 	}
 }
 
+// AVCodecID2StreamType PS流AVCodecID转StreamType
 func AVCodecID2StreamType(id utils.AVCodecID) (int, error) {
-	streamType, ok := SupportedCodecs[id]
+	return AVCodecID2StreamTypeFromCodecs(id, SupportedCodecs)
+}
+
+// StreamType2AVCodecID PS流StreamType转AVCodecID
+func StreamType2AVCodecID(streamType int) (utils.AVCodecID, utils.AVMediaType, error) {
+	return StreamType2AVCodecIDFromCodecs(streamType, SupportedCodecs)
+}
+
+func TSAVCodecID2StreamType(id utils.AVCodecID) (int, error) {
+	return AVCodecID2StreamTypeFromCodecs(id, TSSupportedCodecs)
+}
+
+func TSStreamType2AVCodecID(streamType int) (utils.AVCodecID, utils.AVMediaType, error) {
+	return StreamType2AVCodecIDFromCodecs(streamType, TSSupportedCodecs)
+}
+
+func AVCodecID2StreamTypeFromCodecs(id utils.AVCodecID, codecs map[utils.AVCodecID]interface{}) (int, error) {
+	streamType, ok := codecs[id]
 	if ok {
 		return streamType.(int), nil
 	}
@@ -91,8 +120,8 @@ func AVCodecID2StreamType(id utils.AVCodecID) (int, error) {
 	return -1, fmt.Errorf("unsupported codec: %s", id)
 }
 
-func StreamType2AVCodecID(streamType int) (utils.AVCodecID, utils.AVMediaType, error) {
-	for k, v := range SupportedCodecs {
+func StreamType2AVCodecIDFromCodecs(streamType int, codecs map[utils.AVCodecID]interface{}) (utils.AVCodecID, utils.AVMediaType, error) {
+	for k, v := range codecs {
 		if v != streamType {
 			continue
 		}

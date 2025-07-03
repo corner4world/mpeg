@@ -115,7 +115,7 @@ func (d *TSDemuxer) Input(data []byte) error {
 
 		var codec utils.AVCodecID
 		var mediaType utils.AVMediaType
-		codec, mediaType, err = StreamType2AVCodecID(streamType)
+		codec, mediaType, err = TSStreamType2AVCodecID(streamType)
 		if err != nil {
 			return err
 		}

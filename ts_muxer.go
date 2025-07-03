@@ -38,7 +38,7 @@ func (t *TSMuxer) AddTrack(mediaType utils.AVMediaType, id utils.AVCodecID, extr
 		utils.Assert(false)
 	}
 
-	streamType, err := AVCodecID2StreamType(id)
+	streamType, err := TSAVCodecID2StreamType(id)
 	if err != nil {
 		return -1, err
 	}

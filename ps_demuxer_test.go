@@ -44,8 +44,38 @@ func TestDecodePS(t *testing.T) {
 		//"无法回调出H264数据.ps",
 		//"hikvisionH264.ps",
 		//"hikvisionH265.ps",
-		"ps_demux.ps",
+		//"ps_demux.ps",
+		//	"gb28181.ps",
+		"20004.raw.ps",
 	}
+
+	t.Run("decode_raw_rtp_over_tcp", func(t *testing.T) {
+		path := "../source_files/20004.raw"
+		file, err := os.ReadFile(path)
+		if err != nil {
+			panic(err)
+		}
+
+		psFos, err := os.Create(path + ".ps")
+		if err != nil {
+			panic(err)
+		}
+
+		reader := bufio2.NewBytesReader(file)
+		for {
+			n, err := reader.ReadUint16()
+			if err != nil {
+				break
+			}
+
+			readBytes, err := reader.ReadBytes(int(n))
+			if err != nil {
+				break
+			}
+
+			psFos.Write(readBytes[12:])
+		}
+	})
 
 	getSourceFilePath := func(file string) string {
 		return "../source_files/" + file
