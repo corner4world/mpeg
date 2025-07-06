@@ -37,6 +37,8 @@ const (
 	StreamTypeAudioG711A     = 0x90
 	StreamTypeAudioG711U     = 0x91
 	StreamTypeAudioG722      = 0x92
+	StreamTypeAudioG726      = 0x96
+	StreamTypeAudioPCM       = 0x9C
 	StreamTypeVideoSVAC      = 0x80
 )
 
@@ -49,6 +51,8 @@ var (
 		utils.AVCodecIdPCMALAW:   StreamTypeAudioG711A,
 		utils.AVCodecIdPCMMULAW:  StreamTypeAudioG711U,
 		utils.AVCodecIdADPCMG722: StreamTypeAudioG722,
+		utils.AVCodecIdADPCMG726: StreamTypeAudioG726,
+		utils.AVCodecIdPCMS16LE:  StreamTypeAudioPCM,
 
 		utils.AVCodecIdH264:  StreamTypeVideoH264,
 		utils.AVCodecIdHEVC:  StreamTypeVideoHEVC,

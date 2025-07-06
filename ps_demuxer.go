@@ -12,12 +12,13 @@ import (
 type PSDemuxer struct {
 	avformat.BaseDemuxer
 
-	packHeader       *PackHeader
-	systemHeader     *SystemHeader
-	programStreamMap *ProgramStreamMap
-	pesHeader        *PESHeader
-	reader           bufio.BytesReader
-	lastError        error
+	packHeader           *PackHeader
+	systemHeader         *SystemHeader
+	programStreamMap     *ProgramStreamMap
+	pesHeader            *PESHeader
+	reader               bufio.BytesReader
+	lastError            error
+	hasCalcPcmSampleRate bool // 是否已经计算出PcmSampleRate
 
 	ctx struct {
 		readESLength      uint16 // 已经读取到的ES流长度
@@ -62,11 +63,12 @@ func (d *PSDemuxer) locatePESHeader(reader bufio.BytesReader) bool {
 			_ = reader.Seek(4)
 
 			skipCount, err := reader.ReadUint16()
+			var _ []byte
 			if err != nil {
 				// 需要更多数据
 				_ = reader.SeekBack(4)
 				return false
-			} else if reader.Seek(int(skipCount)) != nil {
+			} else if _, err = reader.ReadBytes(int(skipCount)); err != nil {
 				// 需要更多数据
 				_ = reader.SeekBack(6)
 				return false
@@ -198,7 +200,13 @@ func (d *PSDemuxer) onEsPacket(data []byte, total int, first bool, mediaType uti
 				d.OnVideoPacket(index, d.ctx.codecId, pktData, avformat.IsKeyFrame(d.ctx.codecId, pktData), d.ctx.dts, d.ctx.pts, avformat.PacketTypeAnnexB)
 			}
 
-			if !d.Completed && d.Tracks.Size() > 1 {
+			pcmStream := d.Tracks.Find(utils.AVCodecIdPCMS16LE)
+			if pcmStream != nil && !d.hasCalcPcmSampleRate {
+				d.hasCalcPcmSampleRate = d.calculatePCMFrequency()
+			}
+
+			// 探测完成
+			if !d.Completed && d.Tracks.Size() > 1 && (pcmStream == nil || d.hasCalcPcmSampleRate) {
 				d.ProbeComplete()
 			}
 		}
@@ -221,6 +229,53 @@ func (d *PSDemuxer) onEsPacket(data []byte, total int, first bool, mediaType uti
 	}
 
 	return nil
+}
+
+// calculatePCMFrequency 计算pcm采样率
+func (d *PSDemuxer) calculatePCMFrequency() bool {
+	var pktDuration int
+	var pktDataSize int
+	for _, pkts := range d.Packets {
+		if pkts.Size() < 1 {
+			continue
+		}
+
+		pkt := pkts.Get(0)
+		if pkt.CodecID != utils.AVCodecIdPCMS16LE {
+			continue
+		}
+
+		pktDuration = int(pkt.GetDuration(1000))
+		pktDataSize = len(pkt.Data)
+		break
+	}
+
+	if pktDuration < 1 {
+		return false
+	}
+
+	for _, track := range d.Tracks.Tracks {
+		if track.GetStream().CodecID != utils.AVCodecIdPCMS16LE {
+			continue
+		}
+
+		var sampleRate = track.GetStream().SampleSize
+		msSize := pktDataSize / pktDuration
+		if msSize <= 16 { // 8K
+			sampleRate = 8000
+		} else if msSize <= 32 { // 16K
+			sampleRate = 16000
+		} else if msSize <= 64 { // 32K
+			sampleRate = 32000
+		} else if msSize <= 96 { // 48K
+			sampleRate = 48000
+		}
+
+		track.GetStream().SampleRate = sampleRate
+		break
+	}
+
+	return true
 }
 
 func NewPSDemuxer(autoFree bool) *PSDemuxer {
