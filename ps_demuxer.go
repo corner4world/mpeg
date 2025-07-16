@@ -27,6 +27,9 @@ type PSDemuxer struct {
 		mediaType         utils.AVMediaType
 		dts               int64
 		pts               int64
+
+		latestCodecId   utils.AVCodecID // 最近pes包的编码器id和类型
+		latestMediaType utils.AVMediaType
 	}
 }
 
@@ -99,8 +102,8 @@ func (d *PSDemuxer) locatePESHeader(reader bufio.BytesReader) bool {
 func (d *PSDemuxer) Input(data []byte) (int, error) {
 	d.reader.Reset(data)
 
-	codec := d.ctx.codecId
-	mediaType := d.ctx.mediaType
+	codec := d.ctx.latestCodecId
+	mediaType := d.ctx.latestMediaType
 
 	for d.reader.ReadableBytes() > 0 {
 		// 回调es数据
@@ -117,7 +120,9 @@ func (d *PSDemuxer) Input(data []byte) (int, error) {
 			continue
 		}
 
+		// 读取到最近的pes包头
 		ok := d.locatePESHeader(d.reader)
+		// 如果没有找到pes包头或者streams为空, 丢弃整个包
 		if len(d.programStreamMap.elementaryStreams) < 1 {
 			fmt.Printf("skipped %d invalid data bytes\r\n", len(data))
 			return len(data), nil
@@ -125,15 +130,18 @@ func (d *PSDemuxer) Input(data []byte) (int, error) {
 			break
 		}
 
+		// 解析pes头, 如果数据不足, 退出. 下次将从pes包头开始重新解析
 		pesHeader := PESHeader{}
 		n := pesHeader.Unmarshal(d.reader.RemainingBytes())
 		if n < 1 {
 			break
 		} else {
+			// 跳过pes头, 定位到es包位置
 			_ = d.reader.Seek(n)
 			*d.pesHeader = pesHeader
 		}
 
+		// 是否支持的编码器类型
 		elementaryStream, b := d.programStreamMap.findElementaryStream(d.pesHeader.streamId)
 		if !b {
 			fmt.Printf("unknow stream id:%x \r\n", d.pesHeader.streamId)
@@ -146,6 +154,9 @@ func (d *PSDemuxer) Input(data []byte) (int, error) {
 				d.lastError = err
 				println(err.Error())
 			}
+		} else {
+			d.ctx.latestCodecId = codec
+			d.ctx.latestMediaType = mediaType
 		}
 	}
 

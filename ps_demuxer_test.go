@@ -47,11 +47,11 @@ func TestDecodePS(t *testing.T) {
 		//"ps_demux.ps",
 		//	"gb28181.ps",
 		//		"20004.raw.ps",
-		"ps_h264_pcm32k.raw",
+		//"ps_h264_pcm32k.raw",
 		//"ps_h264_pcm16k.raw",
 		//"ps_h264_pcm8k.raw",
 		//"ps_h264_g7221.raw",
-		//"ps_h264_g726.raw",
+		"ps_h264_g726.raw",
 	}
 
 	t.Run("decode_raw_rtp_over_tcp", func(t *testing.T) {
