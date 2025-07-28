@@ -134,7 +134,14 @@ func (h *ProgramStreamMap) Unmarshal(data []byte) int {
 
 	elementaryLength := int(binary.BigEndian.Uint16(data[offset:]))
 	offset += 2
-	if offset+elementaryLength > totalLength-4 {
+
+	// -4是不包括crc32长度
+	// 有的摄像头错误计算, elementaryLength加上了crc32长度. 为了兼容, 下面只判断是否超过总长
+	//if offset+elementaryLength > totalLength-4 {
+	//	return 0
+	//}
+
+	if offset+elementaryLength > totalLength {
 		return 0
 	}
 
