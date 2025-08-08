@@ -82,7 +82,7 @@ func (d *TSDemuxer) Input(data []byte) error {
 		// pes开始包, 处理前一个pes包
 		if packet.payloadUnitStartIndicator == 1 && utils.AVCodecIdNONE != d.ctx.codec {
 			if d.DataPipeline.PendingBlockSize(d.ctx.bufferIndex) != 0 {
-				pesPkt, _ := d.DataPipeline.Feat(d.ctx.bufferIndex)
+				pesPkt, _ := d.DataPipeline.Fetch(d.ctx.bufferIndex)
 				header := PESHeader{}
 				n := header.Unmarshal(pesPkt)
 				if n > len(pesPkt) {

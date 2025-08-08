@@ -1,5 +1,5 @@
 module github.com/lkmio/mpeg
 
-require github.com/lkmio/avformat v0.0.1
+require github.com/lkmio/avformat v0.0.2
 
 go 1.19

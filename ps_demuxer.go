@@ -199,7 +199,7 @@ func (d *PSDemuxer) onEsPacket(data []byte, total int, first bool, mediaType uti
 			fmt.Printf("loss packet data size: %d\r\n", size)
 			d.DataPipeline.DiscardBackPacket(index)
 		} else {
-			pktData, err := d.DataPipeline.Feat(index)
+			pktData, err := d.DataPipeline.Fetch(index)
 			if err != nil {
 				return err
 			}
